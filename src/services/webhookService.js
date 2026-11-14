@@ -9,7 +9,7 @@ const TIMESTAMP_COLUMN = {
   FAILED: 'failed_at',
 };
 
-// Pure function: sirf decide karta hai ki event apply hoga ya nahi
+
 function decide(current, incoming) {
   if (current === 'FAILED') return 'IGNORED_TERMINAL';
   if (incoming === 'FAILED') {
@@ -22,14 +22,13 @@ async function processEvent(input) {
   const occurredAt = new Date(input.occurredAt);
 
   return db.transaction(async (trx) => {
-    // 1. Message row lock (FOR UPDATE): same message ke do events ek saath aaye
-    //    to ek wait karega, isse race condition nahi hoti
+
     const message = await trx('messages').where({ id: input.messageId }).forUpdate().first();
     if (!message) throw notFound('Unknown messageId');
 
     const result = decide(message.status, input.status);
 
-    // 2. Event save. Unique(event_id) + ON CONFLICT DO NOTHING = idempotency
+    
     const inserted = await trx('webhook_events')
       .insert({
         event_id: input.eventId,
@@ -44,7 +43,7 @@ async function processEvent(input) {
       .ignore()
       .returning('id');
 
-    // 3. Duplicate: pehle wala result wapas do, kuch dobara apply nahi
+    
     if (inserted.length === 0) {
       const existing = await trx('webhook_events').where({ event_id: input.eventId }).first();
       if (existing.message_id !== input.messageId) {
@@ -59,7 +58,7 @@ async function processEvent(input) {
       };
     }
 
-    // 4. Apply (sirf agar allowed)
+    
     if (result === 'APPLIED') {
       await trx('messages')
         .where({ id: input.messageId })
