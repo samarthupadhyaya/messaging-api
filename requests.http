@@ -1,0 +1,127 @@
+### Sample requests (VS Code "REST Client" extension by Huachao Mao)
+### Click "Send Request" above each request. Run requests top to bottom.
+
+@host = http://localhost:3000
+@tenant = tenant-a
+
+### Health
+GET {{host}}/health
+
+### 1. Create message (copy the returned id into @messageId below)
+POST {{host}}/api/v1/messages
+Content-Type: application/json
+x-tenant-id: {{tenant}}
+
+{
+  "tenantId": "tenant-a",
+  "conversationId": "conv-100",
+  "to": "+919876543210",
+  "text": "Your order has shipped"
+}
+
+### Paste the message id here
+@messageId = msg_REPLACE_ME
+
+### 2. Get message
+GET {{host}}/api/v1/messages/{{messageId}}
+x-tenant-id: {{tenant}}
+
+### 3. Tenant isolation: other tenant gets 404
+GET {{host}}/api/v1/messages/{{messageId}}
+x-tenant-id: tenant-b
+
+### 4. List conversation (page 1)
+GET {{host}}/api/v1/conversations/conv-100/messages?limit=2
+x-tenant-id: {{tenant}}
+
+### 5. List conversation (next page: paste nextCursor)
+GET {{host}}/api/v1/conversations/conv-100/messages?limit=2&cursor=PASTE_CURSOR
+x-tenant-id: {{tenant}}
+
+### 6. Webhook: DELIVERED (APPLIED)
+POST {{host}}/api/v1/webhooks/provider
+Content-Type: application/json
+
+{
+  "eventId": "evt-001",
+  "messageId": "{{messageId}}",
+  "status": "DELIVERED",
+  "occurredAt": "2026-10-16T08:30:00.000Z"
+}
+
+### 7. Webhook: same eventId again (duplicate: true, no second effect)
+POST {{host}}/api/v1/webhooks/provider
+Content-Type: application/json
+
+{
+  "eventId": "evt-001",
+  "messageId": "{{messageId}}",
+  "status": "DELIVERED",
+  "occurredAt": "2026-10-16T08:30:00.000Z"
+}
+
+### 8. Webhook: READ (APPLIED)
+POST {{host}}/api/v1/webhooks/provider
+Content-Type: application/json
+
+{
+  "eventId": "evt-002",
+  "messageId": "{{messageId}}",
+  "status": "READ",
+  "occurredAt": "2026-10-16T08:31:00.000Z"
+}
+
+### 9. Webhook: out-of-order late SENT (IGNORED_STALE, status stays READ)
+POST {{host}}/api/v1/webhooks/provider
+Content-Type: application/json
+
+{
+  "eventId": "evt-003",
+  "messageId": "{{messageId}}",
+  "status": "SENT",
+  "occurredAt": "2026-10-16T08:29:00.000Z"
+}
+
+### 10. Webhook: unknown message (404)
+POST {{host}}/api/v1/webhooks/provider
+Content-Type: application/json
+
+{
+  "eventId": "evt-004",
+  "messageId": "msg_does-not-exist",
+  "status": "SENT",
+  "occurredAt": "2026-10-16T08:30:00.000Z"
+}
+
+### 11. Webhook: invalid status (400)
+POST {{host}}/api/v1/webhooks/provider
+Content-Type: application/json
+
+{
+  "eventId": "evt-005",
+  "messageId": "{{messageId}}",
+  "status": "BANANA",
+  "occurredAt": "2026-10-16T08:30:00.000Z"
+}
+
+### 12. Create message: invalid payload (400)
+POST {{host}}/api/v1/messages
+Content-Type: application/json
+x-tenant-id: {{tenant}}
+
+{ "tenantId": "tenant-a" }
+
+### 13. Create message: tenant mismatch (403)
+POST {{host}}/api/v1/messages
+Content-Type: application/json
+x-tenant-id: tenant-a
+
+{
+  "tenantId": "tenant-b",
+  "conversationId": "conv-100",
+  "to": "+919876543210",
+  "text": "hi"
+}
+
+### 14. Missing tenant header (401)
+GET {{host}}/api/v1/messages/{{messageId}}
