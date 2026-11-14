@@ -2,7 +2,7 @@ const request = require('supertest');
 const app = require('../src/app');
 const db = require('../src/db');
 
-// Safety: galti se real DB saaf na ho jaye
+
 function assertTestEnv() {
   if (process.env.NODE_ENV !== 'test') throw new Error('Refusing to reset non-test DB');
 }
